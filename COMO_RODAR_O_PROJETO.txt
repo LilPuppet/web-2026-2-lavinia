@@ -1,0 +1,106 @@
+================================================================================
+          CLINIFLOW — GUIA PASSO A PASSO PARA RODAR O PROJETO (ZIP)
+================================================================================
+
+Projeto: CliniFlow — Sistema de Gestão e Agendamento para Clínicas
+Tecnologias: React 19 + TypeScript + Vite + Tailwind CSS v4 + Lucide React + Motion
+Autora: Lavinia Dantas (laviniadantass@gmail.com) e Google Stitch
+Disciplina: Desenvolvimento Web — UFERSA
+
+--------------------------------------------------------------------------------
+PASSO 1: PRÉ-REQUISITOS NO SEU COMPUTADOR
+--------------------------------------------------------------------------------
+Antes de começar, certifique-se de ter o Node.js instalado na sua máquina.
+
+1. Abra o terminal (PowerShell, Prompt de Comando ou Terminal do VS Code) e teste:
+   node -v
+   npm -v
+
+2. Se não tiver instalado, baixe a versão recomendada (LTS) no site oficial:
+   https://nodejs.org/ (versão 18 ou superior).
+
+--------------------------------------------------------------------------------
+PASSO 2: EXTRAÇÃO DO ARQUIVO ZIP
+--------------------------------------------------------------------------------
+1. Localize o arquivo .zip baixado (ex: cliniflow.zip).
+2. Clique com o botão direito do mouse no arquivo e selecione:
+   "Extrair Tudo..." (ou "Extract All").
+3. Escolha uma pasta de destino (por exemplo: Área de Trabalho ou Documents).
+4. Abra a pasta descompactada resultante. Você deverá ver arquivos como:
+   - package.json
+   - vite.config.ts
+   - index.html
+   - src/
+   - README.md
+   - etc.
+
+--------------------------------------------------------------------------------
+PASSO 3: ABRIR O TERMINAL DENTRO DA PASTA DO PROJETO
+--------------------------------------------------------------------------------
+Dica rápida no Windows:
+1. Abra a pasta descompactada no Windows Explorer.
+2. Clique na barra de endereços no topo da pasta (onde mostra o caminho).
+3. Digite "cmd" ou "powershell" e pressione Enter.
+   (Ou abra a pasta dentro do VS Code e pressione Ctrl + ` para abrir o terminal integrado).
+
+Certifique-se de que o caminho no terminal aponta para a raiz da pasta do projeto
+(onde fica o package.json).
+
+--------------------------------------------------------------------------------
+PASSO 4: INSTALAR TODAS AS DEPENDÊNCIAS
+--------------------------------------------------------------------------------
+Quando você baixa o projeto em formato ZIP, a pasta "node_modules" NÃO vem junto
+(ela é muito pesada e precisa ser baixada na sua máquina).
+
+Para instalar todos os pacotes necessários (incluindo React, Lucide Icons,
+Tailwind CSS e Motion), digite no terminal:
+
+   npm install
+
+Pressione Enter e aguarde o download ser finalizado.
+Ao terminar, você verá que uma pasta chamada "node_modules" foi criada na raiz.
+
+--------------------------------------------------------------------------------
+PASSO 5: INICIAR O SERVIDOR LOCAL (VITE)
+--------------------------------------------------------------------------------
+Com os pacotes instalados, inicie a aplicação com o comando:
+
+   npm run dev
+
+O terminal exibirá algo parecido com:
+
+   VITE v6.2.3  ready in 250 ms
+
+   ➜  Local:   http://localhost:3000/  (ou http://localhost:5173/)
+   ➜  Network: use --host to expose
+   ➜  press h + enter to show help
+
+--------------------------------------------------------------------------------
+PASSO 6: ACESSAR A APLICAÇÃO NO NAVEGADOR
+--------------------------------------------------------------------------------
+1. Abra seu navegador (Chrome, Edge, Firefox).
+2. Acesse o endereço exibido no seu terminal, por exemplo:
+   http://localhost:3000 ou http://localhost:5173
+3. A aplicação estará rodando perfeitamente com todas as telas, agendamentos,
+   regras de negócio e perfis de acesso!
+
+--------------------------------------------------------------------------------
+COMO RESOLVER ERROS COMUNS (TROUBLESHOOTING)
+--------------------------------------------------------------------------------
+
+1. Erro: "Failed to resolve import 'lucide-react' from 'src/App.tsx'"
+   - Causa: O comando "npm install" não foi executado ou foi interrompido.
+   - Solução: Execute manualmente no terminal:
+     npm install lucide-react motion @tailwindcss/vite tailwindcss
+
+2. Erro de permissão no Windows PowerShell ("A execução de scripts foi desabilitada"):
+   - Abra o PowerShell como Administrador e rode:
+     Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+   - Ou simplesmente use o "Command Prompt" (CMD) tradicional.
+
+3. Para encerrar o servidor no terminal:
+   - Pressione Ctrl + C e digite "S" (ou "Y") para confirmar.
+
+================================================================================
+                    FIM DO TUTORIAL — BOM TRABALHO!
+================================================================================

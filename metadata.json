@@ -1,0 +1,6 @@
+{
+  "name": "CliniFlow — Gestão e Agendamento para Clínicas",
+  "description": "Sistema web responsivo para gestão e agendamento de consultas clínicas com controle de acesso (Cliente, Profissional, Administrador) e validação de regras de negócio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
