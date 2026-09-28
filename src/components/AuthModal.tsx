@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useClinic } from '../context/ClinicContext';
-import { SEED_PASSWORD } from '../utils/crypto';
 import {
   User,
   Mail,
@@ -351,38 +350,6 @@ export const AuthModal: React.FC = () => {
                 'Entrar'
               )}
             </button>
-
-            {/* Seed accounts hint for evaluators */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
-                Contas de demonstração
-              </p>
-              <div className="grid grid-cols-1 gap-1 text-[11px]">
-                {[
-                  { label: 'Administradora', email: 'laviniadantass@gmail.com' },
-                  { label: 'Médico (prof-1)',  email: 'marcos.melo@cliniflow.ufersa.br' },
-                  { label: 'Cliente',          email: 'mariana.silva@exemplo.com.br' },
-                ].map(({ label, email: demoEmail }) => (
-                  <button
-                    key={demoEmail}
-                    type="button"
-                    onClick={() => {
-                      setLoginEmail(demoEmail);
-                      setLoginPassword(SEED_PASSWORD);
-                      setLoginErrors({});
-                      setServerError('');
-                    }}
-                    className="text-left px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition text-slate-600 hover:text-emerald-800"
-                  >
-                    <span className="font-bold">{label}</span>
-                    <span className="text-slate-400 ml-1">— {demoEmail}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-slate-400 text-center">
-                Senha de todas as contas demo: <span className="font-mono font-bold text-slate-600">{SEED_PASSWORD}</span>
-              </p>
-            </div>
           </form>
         )}
 
@@ -407,7 +374,7 @@ export const AuthModal: React.FC = () => {
               </div>
             </Field>
 
-            <Field label="E-mail (RN02: único por conta)" error={regErrors.email}>
+            <Field label="E-mail" error={regErrors.email}>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
