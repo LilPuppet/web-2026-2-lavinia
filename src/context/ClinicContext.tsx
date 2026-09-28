@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   User,
+  UserRole,
   Professional,
   Service,
   WeeklyAvailability,
@@ -143,6 +144,17 @@ interface ClinicContextType {
     telefone: string,
     tipo: 'cliente' | 'profissional' | 'administrador',
     profissionalData?: Partial<Professional>
+  ) => { success: boolean; message: string; user?: User };
+
+  // Admin user management
+  updateUser: (id: string, data: Partial<Omit<User, 'id' | 'senha_hash'>>) => void;
+  toggleUserStatus: (id: string) => void;
+  deleteUser: (id: string) => { success: boolean; message: string };
+  adminCreateUser: (
+    nome: string,
+    email: string,
+    telefone: string,
+    tipo: UserRole
   ) => { success: boolean; message: string; user?: User };
 
   // Notifications
@@ -889,6 +901,97 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  // ── Admin User Management ────────────────────────────────────────────────────
+
+  /** Update non-sensitive fields of any user. Password is never touched here. */
+  const updateUser = (id: string, data: Partial<Omit<User, 'id' | 'senha_hash'>>) => {
+    // If email is being changed, enforce uniqueness
+    if (data.email) {
+      const normalised = data.email.trim().toLowerCase();
+      const conflict = users.find(u => u.id !== id && u.email.trim().toLowerCase() === normalised);
+      if (conflict) {
+        showToast('Este e-mail já está em uso por outra conta.', 'error');
+        return;
+      }
+      data = { ...data, email: normalised };
+    }
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+    // Keep session in sync if editing the logged-in user
+    if (currentUser?.id === id) {
+      setCurrentUser(prev => prev ? { ...prev, ...data } : prev);
+    }
+    showToast('Dados da conta atualizados.', 'success');
+  };
+
+  /** Toggle active/inactive status. Cannot deactivate your own account. */
+  const toggleUserStatus = (id: string) => {
+    if (currentUser?.id === id) {
+      showToast('Não é possível desativar sua própria conta.', 'error');
+      return;
+    }
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id !== id) return u;
+        const novo = u.situacao === 'ativo' ? 'inativo' : 'ativo';
+        showToast(`Conta de ${u.nome} ${novo === 'ativo' ? 'reativada' : 'desativada'}.`, 'info');
+        return { ...u, situacao: novo };
+      })
+    );
+  };
+
+  /**
+   * Permanently removes a user record.
+   * Blocked if: it's the current user, or the user has active/future appointments.
+   */
+  const deleteUser = (id: string): { success: boolean; message: string } => {
+    if (currentUser?.id === id) {
+      return { success: false, message: 'Não é possível remover sua própria conta.' };
+    }
+    const hasActiveApts = appointments.some(
+      a => a.cliente_id === id &&
+        a.status !== 'cancelado_cliente' &&
+        a.status !== 'cancelado_profissional' &&
+        a.status !== 'concluido'
+    );
+    if (hasActiveApts) {
+      return { success: false, message: 'Este usuário possui agendamentos ativos. Cancele-os antes de remover a conta.' };
+    }
+    const target = users.find(u => u.id === id);
+    setUsers(prev => prev.filter(u => u.id !== id));
+    showToast(`Conta de ${target?.nome ?? 'usuário'} removida permanentemente.`, 'info');
+    return { success: true, message: 'Conta removida.' };
+  };
+
+  /**
+   * Admin creates any type of account without a password.
+   * The user must set their own password on first login (account has no senha_hash).
+   * Enforces unique email.
+   */
+  const adminCreateUser = (
+    nome: string,
+    email: string,
+    telefone: string,
+    tipo: UserRole
+  ): { success: boolean; message: string; user?: User } => {
+    const normalised = email.trim().toLowerCase();
+    if (users.some(u => u.email.trim().toLowerCase() === normalised)) {
+      return { success: false, message: 'Este e-mail já está cadastrado no sistema.' };
+    }
+    const newUser: User = {
+      id: `usr-${Date.now()}`,
+      nome: nome.trim(),
+      email: normalised,
+      telefone: telefone.trim(),
+      tipo,
+      situacao: 'ativo',
+      data_cadastro: new Date().toISOString().split('T')[0],
+      // No senha_hash — user sets password on first login
+    };
+    setUsers(prev => [...prev, newUser]);
+    showToast(`Conta de ${nome.trim()} criada. Peça que o usuário defina a senha no primeiro acesso.`, 'success');
+    return { success: true, message: 'Conta criada com sucesso!', user: newUser };
+  };
+
   // ── Provider ─────────────────────────────────────────────────────────────────
   return (
     <ClinicContext.Provider
@@ -924,6 +1027,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addService, updateService, toggleServiceStatus,
 
         registerUser,
+
+        updateUser, toggleUserStatus, deleteUser, adminCreateUser,
 
         toastMessage, showToast
       }}

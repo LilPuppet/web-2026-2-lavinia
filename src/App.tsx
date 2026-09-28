@@ -10,6 +10,7 @@ import { AdminDashboardView } from './components/App/AdminDashboardView';
 import { AdminProfessionalsView } from './components/App/AdminProfessionalsView';
 import { AdminServicesView } from './components/App/AdminServicesView';
 import { AdminSettingsView } from './components/App/AdminSettingsView';
+import { AdminUsersView } from './components/App/AdminUsersView';
 import { BusinessRulesInspector } from './components/BusinessRulesInspector';
 import { AuthModal } from './components/AuthModal';
 import {
@@ -20,7 +21,8 @@ import {
   Stethoscope,
   Clock,
   LayoutDashboard,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -183,6 +185,17 @@ const AppContent: React.FC = () => {
                     <Settings className="w-3.5 h-3.5" />
                     Políticas
                   </button>
+                  <button
+                    onClick={() => setCurrentTab('admin-usuarios')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1 ${
+                      currentTab === 'admin-usuarios'
+                        ? 'bg-purple-700 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Usuários
+                  </button>
                 </>
               )}
 
@@ -208,6 +221,7 @@ const AppContent: React.FC = () => {
           {currentTab === 'admin-profissionais'  && <AdminProfessionalsView />}
           {currentTab === 'admin-servicos'       && <AdminServicesView />}
           {currentTab === 'admin-config'         && <AdminSettingsView />}
+          {currentTab === 'admin-usuarios'       && <AdminUsersView />}
         </main>
       )}
 

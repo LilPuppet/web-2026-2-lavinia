@@ -14,7 +14,8 @@ import {
   ClipboardList,
   Clock,
   Settings,
-  UserPlus
+  UserPlus,
+  Users
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -77,7 +78,7 @@ export const Navbar: React.FC = () => {
             className="flex items-center gap-1 text-emerald-300 hover:text-emerald-200 text-xs font-semibold underline decoration-emerald-400 underline-offset-2"
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Regras RN01–RN16</span>
+            <span>Regras de Negócio</span>
           </button>
         </div>
       </div>
@@ -226,6 +227,15 @@ export const Navbar: React.FC = () => {
                     <Settings className="w-3.5 h-3.5" />
                     Parâmetros
                   </button>
+                  <button
+                    onClick={() => setCurrentTab('admin-usuarios')}
+                    className={`px-3 py-2 rounded-lg transition flex items-center gap-1.5 ${
+                      currentTab === 'admin-usuarios' ? 'bg-[#e2f2ef] text-[#176b63]' : 'hover:bg-slate-100'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Usuários
+                  </button>
                 </>
               )}
             </nav>
@@ -262,8 +272,8 @@ export const Navbar: React.FC = () => {
                     </div>
                   )}
                   <div className="hidden sm:flex flex-col items-start leading-tight">
-                    <span className="text-xs font-bold text-slate-900 max-w-[120px] truncate">
-                      {currentUser.nome.split(' ')[0]}
+                    <span className="text-xs font-bold text-slate-900 max-w-[140px] truncate">
+                      {currentUser.nome.split(' ').slice(0, 3).join(' ')}
                     </span>
                     <span className={`text-[10px] font-bold px-1.5 py-0 rounded-full ${
                       currentUser.tipo in roleColor
@@ -472,6 +482,13 @@ export const Navbar: React.FC = () => {
                   >
                     <Settings className="w-4 h-4 text-purple-600" />
                     Parâmetros da Clínica
+                  </button>
+                  <button
+                    onClick={() => { setCurrentTab('admin-usuarios'); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold hover:bg-purple-50 text-slate-700 flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4 text-purple-600" />
+                    Usuários do Sistema
                   </button>
                 </>
               )}

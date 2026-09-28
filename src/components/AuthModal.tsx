@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useClinic } from '../context/ClinicContext';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import {
   User,
   Mail,
@@ -31,7 +32,8 @@ function validateRegisterForm(
   email: string,
   telefone: string,
   senha: string,
-  confirmSenha: string
+  confirmSenha: string,
+  aceitouPolitica: boolean
 ): Record<string, string> {
   const errs: Record<string, string> = {};
 
@@ -51,6 +53,8 @@ function validateRegisterForm(
 
   if (!confirmSenha)                          errs.confirmSenha = 'Confirme a senha.';
   else if (senha && confirmSenha !== senha)   errs.confirmSenha = 'As senhas não coincidem.';
+
+  if (!aceitouPolitica) errs.politica = 'Você deve aceitar a Política de Privacidade para criar uma conta.';
 
   return errs;
 }
@@ -183,11 +187,13 @@ export const AuthModal: React.FC = () => {
   const [telefone,     setTelefone]     = useState('');
   const [senha,        setSenha]        = useState('');
   const [confirmSenha, setConfirmSenha] = useState('');
+  const [aceitouPolitica, setAceitouPolitica] = useState(false);
   const [regErrors,    setRegErrors]    = useState<Record<string, string>>({});
 
   // Shared UI state
   const [serverError, setServerError] = useState('');
   const [loading,     setLoading]     = useState(false);
+  const [showPolicy,  setShowPolicy]  = useState(false);
 
   // Sync tab when modal is re-opened with a different initial tab
   useEffect(() => {
@@ -195,6 +201,7 @@ export const AuthModal: React.FC = () => {
     setServerError('');
     setLoginErrors({});
     setRegErrors({});
+    setAceitouPolitica(false);
   }, [authInitialTab, authModalOpen]);
 
   // Close if user already logged in (pending action resolved externally)
@@ -231,7 +238,7 @@ export const AuthModal: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
-    const errs = validateRegisterForm(nome, email, telefone, senha, confirmSenha);
+    const errs = validateRegisterForm(nome, email, telefone, senha, confirmSenha, aceitouPolitica);
     setRegErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -247,6 +254,7 @@ export const AuthModal: React.FC = () => {
     setServerError('');
     setLoginErrors({});
     setRegErrors({});
+    setAceitouPolitica(false);
   };
 
   return (
@@ -256,6 +264,8 @@ export const AuthModal: React.FC = () => {
       aria-modal="true"
       aria-label="Autenticação"
     >
+      {/* Modal da Política de Privacidade — z-index superior ao modal de auth */}
+      {showPolicy && <PrivacyPolicyModal onClose={() => setShowPolicy(false)} />}
       <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
@@ -435,6 +445,40 @@ export const AuthModal: React.FC = () => {
               O cadastro cria uma conta de <span className="font-bold text-slate-700">paciente/cliente</span>.
               Contas de profissional são criadas pelo administrador da clínica.
             </p>
+
+            {/* Aceite da Política de Privacidade */}
+            <div className={`rounded-xl border px-3 py-3 space-y-1 ${regErrors.politica ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aceitouPolitica}
+                  onChange={e => {
+                    setAceitouPolitica(e.target.checked);
+                    if (e.target.checked && regErrors.politica) {
+                      setRegErrors(prev => { const n = { ...prev }; delete n.politica; return n; });
+                    }
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded accent-[#176b63] flex-shrink-0 cursor-pointer"
+                />
+                <span className="text-[11px] text-slate-600 leading-relaxed">
+                  Li e concordo com a{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowPolicy(true)}
+                    className="text-[#176b63] font-bold underline underline-offset-2 hover:text-[#0d514b] transition"
+                  >
+                    Política de Privacidade
+                  </button>
+                  {' '}do CliniFlow, incluindo a coleta e uso dos meus dados pessoais para fins de agendamento clínico.
+                </span>
+              </label>
+              {regErrors.politica && (
+                <p className="flex items-center gap-1 text-[11px] text-red-600 font-medium pl-7">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  {regErrors.politica}
+                </p>
+              )}
+            </div>
 
             <button
               type="submit"
