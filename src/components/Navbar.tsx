@@ -245,11 +245,11 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2">
             {viewMode === 'landing' ? (
               <button
-                onClick={() => { setViewMode('app'); setCurrentTab('agendamento'); }}
+                onClick={() => openAuthModal('login')}
                 className="hidden sm:inline-flex items-center gap-2 bg-[#176b63] hover:bg-[#0d514b] text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm"
               >
-                <Calendar className="w-4 h-4" />
-                Agendar Consulta
+                <LogIn className="w-4 h-4" />
+                Entrar
               </button>
             ) : currentUser ? (
               /* ── Logged-in user menu ──────────────────────────────────────── */
