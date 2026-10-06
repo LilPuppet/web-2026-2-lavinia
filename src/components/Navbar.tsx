@@ -18,6 +18,16 @@ import {
   Users
 } from 'lucide-react';
 
+/** Logo "G" colorido do Google (SVG inline — lucide não traz ícone de marca). */
+const GoogleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+    <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+  </svg>
+);
+
 export const Navbar: React.FC = () => {
   const {
     viewMode,
@@ -26,7 +36,9 @@ export const Navbar: React.FC = () => {
     setCurrentTab,
     currentUser,
     logout,
-    openAuthModal,
+    loginWithCognito,
+    registerWithCognito,
+    loginWithGoogle,
     setRulesModalOpen,
     clinicConfig
   } = useClinic();
@@ -244,13 +256,30 @@ export const Navbar: React.FC = () => {
           {/* ── Right actions ─────────────────────────────────────────────────── */}
           <div className="flex items-center gap-2">
             {viewMode === 'landing' ? (
-              <button
-                onClick={() => openAuthModal('login')}
-                className="hidden sm:inline-flex items-center gap-2 bg-[#176b63] hover:bg-[#0d514b] text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm"
-              >
-                <LogIn className="w-4 h-4" />
-                Entrar
-              </button>
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  onClick={loginWithCognito}
+                  className="inline-flex items-center gap-2 bg-[#176b63] hover:bg-[#0d514b] text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Entrar
+                </button>
+                <button
+                  onClick={registerWithCognito}
+                  className="inline-flex items-center gap-2 text-slate-700 hover:text-[#176b63] px-3 py-2 rounded-xl text-sm font-bold transition border border-slate-300 hover:border-[#176b63]"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Criar Conta
+                </button>
+                <button
+                  onClick={loginWithGoogle}
+                  className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl text-sm font-bold transition border border-slate-300 shadow-sm"
+                  title="Entrar com Google"
+                >
+                  <GoogleIcon className="w-4 h-4" />
+                  <span>Google</span>
+                </button>
+              </div>
             ) : currentUser ? (
               /* ── Logged-in user menu ──────────────────────────────────────── */
               <div className="relative" ref={dropdownRef}>
@@ -346,18 +375,26 @@ export const Navbar: React.FC = () => {
               /* ── Guest buttons ────────────────────────────────────────────── */
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  onClick={() => openAuthModal('login')}
+                  onClick={loginWithCognito}
                   className="flex items-center gap-1.5 text-xs font-bold text-[#102b38] hover:text-[#176b63] px-3 py-2 rounded-lg transition"
                 >
                   <LogIn className="w-4 h-4" />
                   Entrar
                 </button>
                 <button
-                  onClick={() => openAuthModal('register')}
+                  onClick={registerWithCognito}
                   className="flex items-center gap-1.5 bg-[#102b38] hover:bg-[#176b63] text-white text-xs font-bold px-3 py-2 rounded-lg transition"
                 >
                   <UserPlus className="w-4 h-4" />
                   Criar Conta
+                </button>
+                <button
+                  onClick={loginWithGoogle}
+                  className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition border border-slate-300"
+                  title="Entrar com Google"
+                >
+                  <GoogleIcon className="w-3.5 h-3.5" />
+                  Google
                 </button>
               </div>
             )}
@@ -515,16 +552,24 @@ export const Navbar: React.FC = () => {
             ) : (
               <div className="flex gap-2">
                 <button
-                  onClick={() => { openAuthModal('login'); setMobileMenuOpen(false); }}
+                  onClick={() => { loginWithCognito(); setMobileMenuOpen(false); }}
                   className="text-xs font-bold text-[#176b63] px-3 py-1.5 rounded-lg border border-[#176b63] hover:bg-[#e2f2ef] transition"
                 >
                   Entrar
                 </button>
                 <button
-                  onClick={() => { openAuthModal('register'); setMobileMenuOpen(false); }}
+                  onClick={() => { registerWithCognito(); setMobileMenuOpen(false); }}
                   className="text-xs font-bold text-white bg-[#176b63] hover:bg-[#0d514b] px-3 py-1.5 rounded-lg transition"
                 >
                   Criar Conta
+                </button>
+                <button
+                  onClick={() => { loginWithGoogle(); setMobileMenuOpen(false); }}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 transition"
+                  title="Entrar com Google"
+                >
+                  <GoogleIcon className="w-3.5 h-3.5" />
+                  Google
                 </button>
               </div>
             )}

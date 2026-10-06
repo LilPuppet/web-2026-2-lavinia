@@ -22,6 +22,14 @@ import {
   INITIAL_APPOINTMENTS
 } from '../data/mockData';
 import { hashPassword, verifyPassword } from '../utils/crypto';
+import {
+  fetchCognitoUser,
+  loginWithCognito as redirectToCognitoLogin,
+  registerWithCognito as redirectToCognitoRegister,
+  loginWithGoogle as redirectToGoogleLogin,
+  logoutCognito as redirectToCognitoLogout,
+  type CognitoUserInfo,
+} from '../utils/cognito';
 
 // ─── Context Shape ────────────────────────────────────────────────────────────
 
@@ -47,6 +55,12 @@ interface ClinicContextType {
     password: string
   ) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
+  /** Inicia o fluxo de login via AWS Cognito (redireciona para a hosted UI). */
+  loginWithCognito: () => void;
+  /** Inicia o cadastro via hosted UI do Cognito (página /signup). */
+  registerWithCognito: () => void;
+  /** Inicia o login social do Google via Cognito (identity_provider=Google). */
+  loginWithGoogle: () => void;
   register: (
     nome: string,
     email: string,
@@ -188,6 +202,16 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [authInitialTab, setAuthInitialTab] = useState<'login' | 'register'>('login');
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
+  // Origem da sessão atual: 'cognito' (login via Cognito) | 'local' (login local) | null.
+  // Determina como o logout deve agir (Cognito precisa invalidar a sessão no servidor).
+  const [authMethod, setAuthMethod] = useState<'cognito' | 'local' | null>(() => {
+    try {
+      return (localStorage.getItem(STORAGE_PREFIX + 'auth_method') as 'cognito' | 'local' | null) ?? null;
+    } catch {
+      return null;
+    }
+  });
+
   // Persist session (without the hash — we re-read from users array on login)
   useEffect(() => {
     if (currentUser) {
@@ -198,6 +222,15 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.removeItem(STORAGE_PREFIX + 'session');
     }
   }, [currentUser]);
+
+  // Persiste a origem da sessão para sobreviver a recarregamentos.
+  useEffect(() => {
+    if (authMethod) {
+      localStorage.setItem(STORAGE_PREFIX + 'auth_method', authMethod);
+    } else {
+      localStorage.removeItem(STORAGE_PREFIX + 'auth_method');
+    }
+  }, [authMethod]);
 
   // Business Rules modal
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
@@ -276,16 +309,86 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // ── Auth Modal helpers ───────────────────────────────────────────────────────
 
-  const openAuthModal = (tab: 'login' | 'register' = 'login', callback?: () => void) => {
+  const openAuthModal = (tab: 'login' | 'register' = 'login', _callback?: () => void) => {
+    // Com o Cognito como provedor de identidade, login e cadastro acontecem na
+    // hosted UI — redirecionamos em vez de abrir o modal local. (O callback de
+    // ação pendente não sobrevive ao redirect; o usuário refaz a ação após logar.)
     setAuthInitialTab(tab);
-    setPendingAction(callback ? () => callback : null);
-    setAuthModalOpen(true);
+    if (tab === 'register') redirectToCognitoRegister();
+    else redirectToCognitoLogin();
   };
 
   const closeAuthModal = () => {
     setAuthModalOpen(false);
     setPendingAction(null);
   };
+
+  // ── Cognito: bootstrap da sessão e helpers de login/logout ──────────────────
+
+  /** Mapeia o usuário retornado pelo Cognito para o modelo `User` do app,
+   *  vinculando por e-mail a um usuário local quando existir (preserva id/papel). */
+  const mapCognitoToUser = (info: CognitoUserInfo): User => {
+    const email = (info.email ?? '').trim().toLowerCase();
+    const existing = users.find(u => u.email.trim().toLowerCase() === email && email);
+    if (existing) return existing;
+    const tipo: UserRole =
+      info.tipo === 'profissional' || info.tipo === 'administrador'
+        ? info.tipo
+        : 'cliente';
+    return {
+      id: info.sub ?? `cognito-${Date.now()}`,
+      nome: info.name || info.email || 'Usuário Cognito',
+      email,
+      telefone: info.phone_number ?? '',
+      tipo,
+      situacao: 'ativo',
+      data_cadastro: new Date().toISOString().split('T')[0],
+    };
+  };
+
+  // Ao montar (e após o redirect do Cognito de volta ao app), verifica se há
+  // sessão Cognito ativa e popula o currentUser. Executado uma vez.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const info = await fetchCognitoUser();
+      if (!active || !info?.authenticated) {
+        // Sessão Cognito expirou no servidor mas ainda havia locally — limpa.
+        if (authMethod === 'cognito') {
+          setCurrentUser(null);
+          setAuthMethod(null);
+        }
+        return;
+      }
+      const user = mapCognitoToUser(info);
+      setCurrentUser(user);
+      setAuthMethod('cognito');
+      // Roteia por papel, espelhando o login local.
+      if (user.tipo === 'administrador') {
+        setViewMode('app');
+        setCurrentTab('admin-dashboard');
+      } else if (user.tipo === 'profissional') {
+        setViewMode('app');
+        setCurrentTab('agenda-profissional');
+      } else {
+        setViewMode('app');
+        setCurrentTab('agendamento');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Inicia o fluxo de login via AWS Cognito (redireciona para a hosted UI). */
+  const loginWithCognito = () => redirectToCognitoLogin();
+
+  /** Inicia o cadastro via hosted UI do Cognito (página /signup). */
+  const registerWithCognito = () => redirectToCognitoRegister();
+
+  /** Inicia o login social do Google via Cognito (identity_provider=Google). */
+  const loginWithGoogle = () => redirectToGoogleLogin();
 
   const openRuleDetail = (code: string) => {
     setSelectedRuleCode(code);
@@ -326,6 +429,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Strip hash from in-memory session (it's already persisted in users array)
     const { senha_hash: _omit, ...safeUser } = found;
     setCurrentUser(found); // keep full object in state for comparisons
+    setAuthMethod('local');
 
     // Route to the right default tab based on role
     if (found.tipo === 'administrador') {
@@ -346,10 +450,17 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return { success: true, message: 'Login realizado com sucesso!' };
   };
 
-  /** Clears the session. */
+  /** Encerra a sessão. Login Cognito também invalida a sessão no servidor. */
   const logout = () => {
+    const wasCognito = authMethod === 'cognito';
+    // Limpa o estado local imediatamente (o redirect recarregará a página no caso Cognito).
     setCurrentUser(null);
+    setAuthMethod(null);
     setViewMode('landing');
+    if (wasCognito) {
+      redirectToCognitoLogout();
+      return;
+    }
     showToast('Sessão encerrada com segurança.', 'info');
   };
 
@@ -393,6 +504,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
+    setAuthMethod('local');
 
     // Route after registration
     if (tipo === 'administrador') {
@@ -1002,7 +1114,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         authModalOpen, setAuthModalOpen,
         authInitialTab, openAuthModal, closeAuthModal,
-        login, logout, register,
+        login, logout, loginWithCognito, registerWithCognito, loginWithGoogle, register,
 
         rulesModalOpen, setRulesModalOpen,
         selectedRuleCode, openRuleDetail,
