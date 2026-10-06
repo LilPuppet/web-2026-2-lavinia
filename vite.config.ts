@@ -17,12 +17,6 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      // Proxy das rotas de autenticação para o backend Express (server.ts) em
-      // desenvolvimento. Mantém API e SPA na mesma origem (localhost:3000), o
-      // que faz o cookie de sessão funcionar sem CORS/SameSite estranho.
-      proxy: {
-        '/auth': 'http://localhost:3001',
-      },
     },
   };
 });

@@ -24,6 +24,7 @@ import {
 import { hashPassword, verifyPassword } from '../utils/crypto';
 import {
   fetchCognitoUser,
+  handleCognitoCallback,
   loginWithCognito as redirectToCognitoLogin,
   registerWithCognito as redirectToCognitoRegister,
   loginWithGoogle as redirectToGoogleLogin,
@@ -346,33 +347,38 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   };
 
-  // Ao montar (e após o redirect do Cognito de volta ao app), verifica se há
-  // sessão Cognito ativa e popula o currentUser. Executado uma vez.
+  // Ao montar (e após o redirect do Cognito de volta ao app), trata o callback
+  // (?code=...), troca o código por tokens e popula o currentUser. Executado uma vez.
   useEffect(() => {
     let active = true;
     (async () => {
-      const info = await fetchCognitoUser();
-      if (!active || !info?.authenticated) {
-        // Sessão Cognito expirou no servidor mas ainda havia locally — limpa.
-        if (authMethod === 'cognito') {
-          setCurrentUser(null);
-          setAuthMethod(null);
-        }
-        return;
+      // Retornando do Cognito com code=state= ? troca por tokens (PKCE no navegador).
+      await handleCognitoCallback();
+      // Limpa a query (?code&state) da URL após tratar o callback.
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
       }
-      const user = mapCognitoToUser(info);
-      setCurrentUser(user);
-      setAuthMethod('cognito');
-      // Roteia por papel, espelhando o login local.
-      if (user.tipo === 'administrador') {
-        setViewMode('app');
-        setCurrentTab('admin-dashboard');
-      } else if (user.tipo === 'profissional') {
-        setViewMode('app');
-        setCurrentTab('agenda-profissional');
-      } else {
-        setViewMode('app');
-        setCurrentTab('agendamento');
+      const info = fetchCognitoUser();
+      if (!active) return;
+      if (info?.authenticated) {
+        const user = mapCognitoToUser(info);
+        setCurrentUser(user);
+        setAuthMethod('cognito');
+        // Roteia por papel, espelhando o login local.
+        if (user.tipo === 'administrador') {
+          setViewMode('app');
+          setCurrentTab('admin-dashboard');
+        } else if (user.tipo === 'profissional') {
+          setViewMode('app');
+          setCurrentTab('agenda-profissional');
+        } else {
+          setViewMode('app');
+          setCurrentTab('agendamento');
+        }
+      } else if (authMethod === 'cognito') {
+        // Sessão Cognito expirou no servidor mas ainda havia locally — limpa.
+        setCurrentUser(null);
+        setAuthMethod(null);
       }
     })();
     return () => {
