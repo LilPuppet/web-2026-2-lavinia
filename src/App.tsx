@@ -12,7 +12,6 @@ import { AdminServicesView } from './components/App/AdminServicesView';
 import { AdminSettingsView } from './components/App/AdminSettingsView';
 import { AdminUsersView } from './components/App/AdminUsersView';
 import { BusinessRulesInspector } from './components/BusinessRulesInspector';
-import { AuthModal } from './components/AuthModal';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -227,7 +226,6 @@ const AppContent: React.FC = () => {
 
       {/* Global modals */}
       <BusinessRulesInspector />
-      <AuthModal />
     </div>
   );
 };

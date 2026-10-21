@@ -21,16 +21,14 @@ import {
   INITIAL_BLOCKS,
   INITIAL_APPOINTMENTS
 } from '../data/mockData';
-import { hashPassword, verifyPassword } from '../utils/crypto';
 import {
-  fetchCognitoUser,
-  handleCognitoCallback,
-  loginWithCognito as redirectToCognitoLogin,
-  registerWithCognito as redirectToCognitoRegister,
-  loginWithGoogle as redirectToGoogleLogin,
-  logoutCognito as redirectToCognitoLogout,
-  type CognitoUserInfo,
-} from '../utils/cognito';
+  signInWithCognito as cognitoSignIn,
+  signInWithGoogle as cognitoGoogleSignIn,
+  registerWithCognito as cognitoRegister,
+  getCurrentAuthUser,
+  cognitoSignOut,
+  type AuthUserInfo,
+} from '../utils/auth';
 
 // ─── Context Shape ────────────────────────────────────────────────────────────
 
@@ -43,32 +41,17 @@ interface ClinicContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
 
-  // Auth modal
-  authModalOpen: boolean;
-  setAuthModalOpen: (open: boolean) => void;
-  authInitialTab: 'login' | 'register';
+  // Auth — Amazon Cognito via aws-amplify (Managed Login + Google pelo Cognito).
+  // A sessão é gerenciada pelo Amplify; currentUser é derivado dela.
+  /** Redireciona para o login do Cognito (usado por fluxos que exigem auth). */
   openAuthModal: (tab?: 'login' | 'register', callback?: () => void) => void;
-  closeAuthModal: () => void;
-
-  // Auth actions (async — password hashing)
-  login: (
-    email: string,
-    password: string
-  ) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
-  /** Inicia o fluxo de login via AWS Cognito (redireciona para a hosted UI). */
+  /** Inicia o login no Cognito Managed Login (Google habilitado). */
   loginWithCognito: () => void;
-  /** Inicia o cadastro via hosted UI do Cognito (página /signup). */
+  /** Inicia o cadastro via hosted UI do Cognito. */
   registerWithCognito: () => void;
-  /** Inicia o login social do Google via Cognito (identity_provider=Google). */
+  /** Login Google mediado pelo Cognito (identity_provider=Google). */
   loginWithGoogle: () => void;
-  register: (
-    nome: string,
-    email: string,
-    telefone: string,
-    senha: string,
-    tipo: 'cliente' | 'profissional' | 'administrador'
-  ) => Promise<{ success: boolean; message: string; user?: User }>;
 
   // Business Rules inspector
   rulesModalOpen: boolean;
@@ -199,19 +182,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return null;
     }
   });
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authInitialTab, setAuthInitialTab] = useState<'login' | 'register'>('login');
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-
-  // Origem da sessão atual: 'cognito' (login via Cognito) | 'local' (login local) | null.
-  // Determina como o logout deve agir (Cognito precisa invalidar a sessão no servidor).
-  const [authMethod, setAuthMethod] = useState<'cognito' | 'local' | null>(() => {
-    try {
-      return (localStorage.getItem(STORAGE_PREFIX + 'auth_method') as 'cognito' | 'local' | null) ?? null;
-    } catch {
-      return null;
-    }
-  });
 
   // Persist session (without the hash — we re-read from users array on login)
   useEffect(() => {
@@ -223,15 +193,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.removeItem(STORAGE_PREFIX + 'session');
     }
   }, [currentUser]);
-
-  // Persiste a origem da sessão para sobreviver a recarregamentos.
-  useEffect(() => {
-    if (authMethod) {
-      localStorage.setItem(STORAGE_PREFIX + 'auth_method', authMethod);
-    } else {
-      localStorage.removeItem(STORAGE_PREFIX + 'auth_method');
-    }
-  }, [authMethod]);
 
   // Business Rules modal
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
@@ -308,27 +269,11 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const getProfessionalsForService = (serviceId: string) =>
     activeProfessionals.filter(p => p.servicos_ids.includes(serviceId));
 
-  // ── Auth Modal helpers ───────────────────────────────────────────────────────
+  // ── Auth (Cognito via aws-amplify) ───────────────────────────────────────────
 
-  const openAuthModal = (tab: 'login' | 'register' = 'login', _callback?: () => void) => {
-    // Com o Cognito como provedor de identidade, login e cadastro acontecem na
-    // hosted UI — redirecionamos em vez de abrir o modal local. (O callback de
-    // ação pendente não sobrevive ao redirect; o usuário refaz a ação após logar.)
-    setAuthInitialTab(tab);
-    if (tab === 'register') redirectToCognitoRegister();
-    else redirectToCognitoLogin();
-  };
-
-  const closeAuthModal = () => {
-    setAuthModalOpen(false);
-    setPendingAction(null);
-  };
-
-  // ── Cognito: bootstrap da sessão e helpers de login/logout ──────────────────
-
-  /** Mapeia o usuário retornado pelo Cognito para o modelo `User` do app,
-   *  vinculando por e-mail a um usuário local quando existir (preserva id/papel). */
-  const mapCognitoToUser = (info: CognitoUserInfo): User => {
+  /** Mapeia o usuário do Cognito para o modelo `User` do app, vinculando por
+   *  e-mail a um usuário local quando existir (preserva id/papel). */
+  const mapAuthToUser = (info: AuthUserInfo): User => {
     const email = (info.email ?? '').trim().toLowerCase();
     const existing = users.find(u => u.email.trim().toLowerCase() === email && email);
     if (existing) return existing;
@@ -337,48 +282,39 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ? info.tipo
         : 'cliente';
     return {
-      id: info.sub ?? `cognito-${Date.now()}`,
+      id: info.sub || `cognito-${Date.now()}`,
       nome: info.name || info.email || 'Usuário Cognito',
       email,
       telefone: info.phone_number ?? '',
       tipo,
       situacao: 'ativo',
       data_cadastro: new Date().toISOString().split('T')[0],
+      avatar: info.avatar,
     };
   };
 
-  // Ao montar (e após o redirect do Cognito de volta ao app), trata o callback
-  // (?code=...), troca o código por tokens e popula o currentUser. Executado uma vez.
+  // Roteia para a tela padrão conforme o papel (após login).
+  const routeByRole = (user: User) => {
+    setViewMode('app');
+    if (user.tipo === 'administrador') setCurrentTab('admin-dashboard');
+    else if (user.tipo === 'profissional') setCurrentTab('agenda-profissional');
+    else setCurrentTab('agendamento');
+  };
+
+  // Bootstrap: ao montar (e ao voltar do Cognito com ?code=...), lê a sessão do
+  // Amplify (única fonte de verdade) e popula currentUser. Executado uma vez.
   useEffect(() => {
     let active = true;
     (async () => {
-      // Retornando do Cognito com code=state= ? troca por tokens (PKCE no navegador).
-      await handleCognitoCallback();
-      // Limpa a query (?code&state) da URL após tratar o callback.
-      if (window.location.search) {
-        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-      }
-      const info = fetchCognitoUser();
+      const info = await getCurrentAuthUser();
       if (!active) return;
-      if (info?.authenticated) {
-        const user = mapCognitoToUser(info);
+      if (info) {
+        const user = mapAuthToUser(info);
         setCurrentUser(user);
-        setAuthMethod('cognito');
-        // Roteia por papel, espelhando o login local.
-        if (user.tipo === 'administrador') {
-          setViewMode('app');
-          setCurrentTab('admin-dashboard');
-        } else if (user.tipo === 'profissional') {
-          setViewMode('app');
-          setCurrentTab('agenda-profissional');
-        } else {
-          setViewMode('app');
-          setCurrentTab('agendamento');
-        }
-      } else if (authMethod === 'cognito') {
-        // Sessão Cognito expirou no servidor mas ainda havia locally — limpa.
+        routeByRole(user);
+      } else {
+        // Sem sessão válida no Cognito — garante estado consistente.
         setCurrentUser(null);
-        setAuthMethod(null);
       }
     })();
     return () => {
@@ -387,148 +323,26 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Inicia o fluxo de login via AWS Cognito (redireciona para a hosted UI). */
-  const loginWithCognito = () => redirectToCognitoLogin();
+  /** Redireciona para o login do Cognito (usado por fluxos que exigem auth). */
+  const openAuthModal = (_tab?: 'login' | 'register', _callback?: () => void) => {
+    void cognitoSignIn();
+  };
 
-  /** Inicia o cadastro via hosted UI do Cognito (página /signup). */
-  const registerWithCognito = () => redirectToCognitoRegister();
+  /** Inicia o login no Cognito Managed Login (Google habilitado). */
+  const loginWithCognito = () => { void cognitoSignIn(); };
 
-  /** Inicia o login social do Google via Cognito (identity_provider=Google). */
-  const loginWithGoogle = () => redirectToGoogleLogin();
+  /** Inicia o cadastro via hosted UI do Cognito. */
+  const registerWithCognito = () => { void cognitoRegister(); };
+
+  /** Login Google mediado pelo Cognito (identity_provider=Google). */
+  const loginWithGoogle = () => { void cognitoGoogleSignIn(); };
+
+  /** Encerra a sessão (Amplify) e redireciona para o logout do Cognito. */
+  const logout = () => { void cognitoSignOut(); };
 
   const openRuleDetail = (code: string) => {
     setSelectedRuleCode(code);
     setRulesModalOpen(true);
-  };
-
-  // ── Real Authentication ──────────────────────────────────────────────────────
-
-  /**
-   * Async login — verifies password hash with Web Crypto API.
-   * checks account exists; checks account is active.
-   */
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<{ success: boolean; message: string }> => {
-    const normalised = email.trim().toLowerCase();
-    const found = users.find(u => u.email.trim().toLowerCase() === normalised);
-
-    if (!found) {
-      return { success: false, message: 'E-mail não cadastrado no sistema.' };
-    }
-
-    if (found.situacao !== 'ativo') {
-      return { success: false, message: 'Esta conta está desativada. Contate a administração.' };
-    }
-
-    if (!found.senha_hash) {
-      // Account created before password system — shouldn't happen after migration
-      return { success: false, message: 'Conta sem senha definida. Contate a administração.' };
-    }
-
-    const ok = await verifyPassword(password, normalised, found.senha_hash);
-    if (!ok) {
-      return { success: false, message: 'Senha incorreta. Tente novamente.' };
-    }
-
-    // Strip hash from in-memory session (it's already persisted in users array)
-    const { senha_hash: _omit, ...safeUser } = found;
-    setCurrentUser(found); // keep full object in state for comparisons
-    setAuthMethod('local');
-
-    // Route to the right default tab based on role
-    if (found.tipo === 'administrador') {
-      setViewMode('app');
-      setCurrentTab('admin-dashboard');
-    } else if (found.tipo === 'profissional') {
-      setViewMode('app');
-      setCurrentTab('agenda-profissional');
-    }
-
-    if (pendingAction) {
-      pendingAction();
-      setPendingAction(null);
-    }
-
-    closeAuthModal();
-    showToast(`Bem-vindo(a) de volta, ${found.nome.split(' ')[0]}!`, 'success');
-    return { success: true, message: 'Login realizado com sucesso!' };
-  };
-
-  /** Encerra a sessão. Login Cognito também invalida a sessão no servidor. */
-  const logout = () => {
-    const wasCognito = authMethod === 'cognito';
-    // Limpa o estado local imediatamente (o redirect recarregará a página no caso Cognito).
-    setCurrentUser(null);
-    setAuthMethod(null);
-    setViewMode('landing');
-    if (wasCognito) {
-      redirectToCognitoLogout();
-      return;
-    }
-    showToast('Sessão encerrada com segurança.', 'info');
-  };
-
-  /**
-   * Async register — hashes password, enforces RULE 2 (unique email).
-   * Clients register freely. Profissionais/Admins can only be created
-   * by an existing administrator (enforced via the context — the modal
-   * only offers 'cliente' to non-admin users).
-   */
-  const register = async (
-    nome: string,
-    email: string,
-    telefone: string,
-    senha: string,
-    tipo: 'cliente' | 'profissional' | 'administrador'
-  ): Promise<{ success: boolean; message: string; user?: User }> => {
-    const normalised = email.trim().toLowerCase();
-
-    // unique email
-    const exists = users.some(u => u.email.trim().toLowerCase() === normalised);
-    if (exists) {
-      return {
-        success: false,
-        message: 'Este e-mail já está cadastrado. Use outro ou faça login.'
-      };
-    }
-
-    const hash = await hashPassword(senha, normalised);
-    const newUserId = `usr-${Date.now()}`;
-
-    const newUser: User = {
-      id: newUserId,
-      nome: nome.trim(),
-      email: normalised,
-      telefone: telefone.trim(),
-      tipo,
-      situacao: 'ativo',
-      data_cadastro: new Date().toISOString().split('T')[0],
-      senha_hash: hash
-    };
-
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    setAuthMethod('local');
-
-    // Route after registration
-    if (tipo === 'administrador') {
-      setViewMode('app');
-      setCurrentTab('admin-dashboard');
-    } else if (tipo === 'profissional') {
-      setViewMode('app');
-      setCurrentTab('agenda-profissional');
-    }
-
-    if (pendingAction) {
-      pendingAction();
-      setPendingAction(null);
-    }
-
-    closeAuthModal();
-    showToast(`Conta criada! Bem-vindo(a), ${nome.trim().split(' ')[0]}.`, 'success');
-    return { success: true, message: 'Conta criada com sucesso!', user: newUser };
   };
 
   // ── Legacy synchronous registerUser (used by AdminProfessionalsView) ─────────
@@ -1118,9 +932,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentTab, setCurrentTab,
         currentUser, setCurrentUser,
 
-        authModalOpen, setAuthModalOpen,
-        authInitialTab, openAuthModal, closeAuthModal,
-        login, logout, loginWithCognito, registerWithCognito, loginWithGoogle, register,
+        openAuthModal,
+        logout, loginWithCognito, registerWithCognito, loginWithGoogle,
 
         rulesModalOpen, setRulesModalOpen,
         selectedRuleCode, openRuleDetail,

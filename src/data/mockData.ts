@@ -8,7 +8,6 @@ import {
   ClinicConfig,
   BusinessRuleDefinition
 } from '../types';
-import { SEED_HASHES } from '../utils/crypto';
 
 export const INITIAL_CLINIC_CONFIG: ClinicConfig = {
   nome: 'CliniFlow — Central de Saúde & Agendamento',
@@ -142,7 +141,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-01-10',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['laviniadantass@gmail.com']
   },
   {
     id: 'usr-prof-1',
@@ -154,7 +152,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-01-15',
     avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['marcos.melo@cliniflow.ufersa.br']
   },
   {
     id: 'usr-prof-2',
@@ -166,7 +163,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-01-18',
     avatar: 'https://images.unsplash.com/photo-1594824813581-22e379b3a0f7?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['camila.torres@cliniflow.ufersa.br']
   },
   {
     id: 'usr-prof-3',
@@ -178,7 +174,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-02-01',
     avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['rafael.albuquerque@cliniflow.ufersa.br']
   },
   {
     id: 'usr-cli-1',
@@ -189,7 +184,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-02-10',
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['mariana.silva@exemplo.com.br']
   },
   {
     id: 'usr-cli-2',
@@ -200,7 +194,6 @@ export const INITIAL_USERS: User[] = [
     situacao: 'ativo',
     data_cadastro: '2026-02-14',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-    senha_hash: SEED_HASHES['lucas.fernandes@exemplo.com.br']
   }
 ];
 
