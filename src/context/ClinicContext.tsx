@@ -306,12 +306,26 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   /** Redireciona para o login do Cognito (usado por fluxos que exigem auth). */
+  const startLogin = async () => {
+    try {
+      await cognitoSignIn();
+    } catch (e) {
+      console.error('[auth] login falhou:', e);
+      const err = e as { name?: string; message?: string };
+      if (err?.name === 'UserAlreadyAuthenticatedException') {
+        showToast('Você já está logado.', 'info');
+      } else {
+        showToast(err?.message || 'Não foi possível abrir o login do Cognito.', 'error');
+      }
+    }
+  };
+
   const openAuthModal = (_tab?: 'login' | 'register', _callback?: () => void) => {
-    void cognitoSignIn();
+    void startLogin();
   };
 
   /** Redireciona para a Hosted UI do Cognito (login e cadastro). */
-  const loginWithCognito = () => { void cognitoSignIn(); };
+  const loginWithCognito = () => { void startLogin(); };
 
   /** Encerra a sessão (Amplify) e redireciona para o logout do Cognito. */
   const logout = () => { void cognitoSignOut(); };

@@ -19,6 +19,7 @@ import {
 } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 import type { UserRole } from '../types';
+import { cognitoReady } from '../amplify';
 
 export interface AuthUserInfo {
   /** sub do Cognito */
@@ -32,14 +33,17 @@ export interface AuthUserInfo {
   avatar?: string;
 }
 
-/** Redireciona para a Hosted UI do Cognito (login e cadastro ficam lá). */
+/**
+ * Redireciona para a Hosted UI do Cognito (login e cadastro ficam lá).
+ * Lança erro com mensagem clara quando não há como redirecionar.
+ */
 export async function signInWithCognito(): Promise<void> {
-  try {
-    await signInWithRedirect();
-  } catch (e) {
-    // Ex.: já existe usuário logado, ou Cognito não configurado (variáveis VITE_COGNITO_* ausentes no build).
-    console.error('[auth] signInWithRedirect falhou:', e);
+  if (!cognitoReady) {
+    throw new Error(
+      'Cognito não configurado neste build: defina VITE_COGNITO_CLIENT_ID nas variáveis de ambiente do Amplify Hosting e refaça o deploy.',
+    );
   }
+  await signInWithRedirect();
 }
 
 export function roleFromGroups(groups: string[]): UserRole {
