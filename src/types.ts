@@ -11,8 +11,6 @@ export interface User {
   data_cadastro: string;
   avatar?: string;
   profissional_id?: string; // se tipo for profissional
-  /** SHA-256 hex digest of the password — never exposed in plain text */
-  senha_hash?: string;
 }
 
 /** Validation result for form fields */

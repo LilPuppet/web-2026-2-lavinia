@@ -1,59 +1,52 @@
 /**
- * Configuração do AWS Amplify Auth (Amazon Cognito).
+ * Configuração do AWS Amplify Auth (Amazon Cognito) — Hosted UI / Managed Login.
  *
- * Único provedor de identidade: Cognito (Managed Login), com Google habilitado
- * como identity provider do User Pool. O frontend não fala com o Google direto.
+ * Fluxo: Authorization Code + PKCE (o Amplify cuida de state/PKCE/tokens).
+ * Google é um identity provider do User Pool; o front nunca fala com o Google.
  *
- * Variáveis de ambiente (Vite, prefixo VITE_):
- *   VITE_COGNITO_USER_POOL_ID  ex.: us-east-1_2plLvJx5Q
- *   VITE_COGNITO_CLIENT_ID     ID de um app client PÚBLICO (sem client secret)
- *   VITE_COGNITO_DOMAIN        domínio da hosted UI/Managed Login (sem https://)
- *   VITE_COGNITO_REGION        ex.: us-east-1
+ * Variáveis (Vite):
+ *   VITE_COGNITO_USER_POOL_ID  ex.: us-east-1_XXXXXXXXX
+ *   VITE_COGNITO_CLIENT_ID     app client PÚBLICO (criado SEM client secret)
+ *   VITE_COGNITO_DOMAIN        domínio da Hosted UI, SEM https://
  *   VITE_COGNITO_REDIRECT_URI  (opcional) default = origem atual + "/"
  *   VITE_COGNITO_LOGOUT_URI    (opcional) default = origem atual + "/"
  *
- * As URLs de redirect/logout são derivadas em runtime da origem atual, então
- * o mesmo build serve para localhost e para produção — basta cadastrar as
- * origens no app client do Cognito. Nunca há segredo aqui.
+ * Os redirects devem estar cadastrados EXATAMENTE (inclusive a barra final) em
+ * "Allowed callback URLs" e "Allowed sign-out URLs" do app client.
  */
 import { Amplify } from 'aws-amplify';
 
-const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
-const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-const domain = import.meta.env.VITE_COGNITO_DOMAIN;
-const region = import.meta.env.VITE_COGNITO_REGION;
+const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID as string | undefined;
+const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID as string | undefined;
+const domain = import.meta.env.VITE_COGNITO_DOMAIN as string | undefined;
 
 const origin = typeof window !== 'undefined' ? window.location.origin : '';
-const redirectSignIn = import.meta.env.VITE_COGNITO_REDIRECT_URI || `${origin}/`;
-const redirectSignOut = import.meta.env.VITE_COGNITO_LOGOUT_URI || `${origin}/`;
+const redirectSignIn = (import.meta.env.VITE_COGNITO_REDIRECT_URI as string) || `${origin}/`;
+const redirectSignOut = (import.meta.env.VITE_COGNITO_LOGOUT_URI as string) || `${origin}/`;
 
-export const cognitoReady = Boolean(userPoolId && userPoolClientId);
+export const cognitoReady = Boolean(userPoolId && userPoolClientId && domain);
 
 if (cognitoReady) {
   Amplify.configure({
     Auth: {
       Cognito: {
-        userPoolId,
-        userPoolClientId,
+        userPoolId: userPoolId!,
+        userPoolClientId: userPoolClientId!,
         loginWith: {
-          oauth: domain
-            ? {
-                domain,
-                scopes: ['openid', 'email', 'profile', 'phone'],
-                redirectSignIn: [redirectSignIn],
-                redirectSignOut: [redirectSignOut],
-                responseType: 'code',
-              }
-            : undefined,
+          oauth: {
+            domain: domain!.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+            // Só scopes habilitados no app client (pedir um não habilitado => invalid_scope).
+            scopes: ['openid', 'email', 'profile'],
+            redirectSignIn: [redirectSignIn],
+            redirectSignOut: [redirectSignOut],
+            responseType: 'code',
+          },
         },
       },
     },
   });
 } else {
-  // eslint-disable-next-line no-console
   console.warn(
-    '[auth] VITE_COGNITO_USER_POOL_ID e/ou VITE_COGNITO_CLIENT_ID ausentes — login por Cognito desativado.',
+    '[auth] Defina VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID e VITE_COGNITO_DOMAIN — login desativado.',
   );
 }
-
-export { region };

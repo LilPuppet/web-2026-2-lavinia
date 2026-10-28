@@ -202,7 +202,7 @@ export const AdminUsersView: React.FC = () => {
             Usuários do Sistema
           </h2>
           <p className="text-xs text-slate-500">
-            Criação, edição, ativação e remoção de contas. Senhas nunca são exibidas.
+            Criação, edição, ativação e remoção de cadastros. O login e as senhas são gerenciados pelo Cognito.
           </p>
         </div>
         <button
@@ -381,7 +381,7 @@ export const AdminUsersView: React.FC = () => {
         </div>
 
         <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-400">
-          As senhas dos usuários nunca são exibidas e não podem ser visualizadas pelo administrador. Para redefinir o acesso de um usuário, remova e recrie a conta.
+          O login e as senhas são gerenciados pelo Amazon Cognito. O perfil de acesso (cliente, profissional ou administrador) é definido pelo grupo do usuário no Cognito.
         </div>
       </div>
 
@@ -466,7 +466,7 @@ export const AdminUsersView: React.FC = () => {
               {modalMode === 'create' && (
                 <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                  A conta será criada sem senha. O usuário deve definir a senha no primeiro acesso através da tela de login.
+                  O cadastro será criado sem senha. Para acessar, o usuário entra pelo Cognito (Google ou cadastro) com este mesmo e-mail.
                 </p>
               )}
 

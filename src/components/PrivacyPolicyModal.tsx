@@ -118,7 +118,7 @@ const handlePrint = () => {
     <li><strong>Nome completo</strong> — para identificação e personalização do atendimento.</li>
     <li><strong>Endereço de e-mail</strong> — para autenticação, comunicações e recuperação de acesso.</li>
     <li><strong>Número de telefone (WhatsApp)</strong> — para contato relacionado aos agendamentos.</li>
-    <li><strong>Senha</strong> — armazenada exclusivamente como hash criptográfico (SHA-256); nunca em texto simples.</li>
+    <li><strong>Autenticação</strong> — realizada pelo Amazon Cognito (e Google, quando escolhido); o CliniFlow não armazena senhas.</li>
     <li><strong>Data de cadastro</strong> — para fins de auditoria e controle de acesso.</li>
     <li><strong>Dados de agendamento</strong> — serviço solicitado, profissional, data, horário e status do atendimento.</li>
   </ul>
@@ -150,7 +150,7 @@ const handlePrint = () => {
     Adotamos medidas técnicas para proteger os dados dos usuários:
   </p>
   <ul>
-    <li>Senhas armazenadas como hash criptográfico irreversível, nunca em texto simples.</li>
+    <li>Autenticação gerenciada pelo Amazon Cognito; o CliniFlow não armazena senhas.</li>
     <li>Controle de acesso baseado em perfis (RBAC), impedindo que um usuário acesse dados de outro.</li>
     <li>Verificação de propriedade de recursos em todas as operações sensíveis.</li>
     <li>Dados armazenados localmente no navegador do usuário (localStorage) durante esta fase do projeto.</li>
@@ -278,7 +278,7 @@ export const PrivacyPolicyModal: React.FC<Props> = ({ onClose }) => {
                 'Nome completo — para identificação e personalização do atendimento.',
                 'E-mail — para autenticação, comunicações e recuperação de acesso.',
                 'Telefone (WhatsApp) — para contato relacionado aos agendamentos.',
-                'Senha — armazenada exclusivamente como hash criptográfico irreversível, nunca em texto simples.',
+                'Autenticação — realizada pelo Amazon Cognito (e Google, quando escolhido); o CliniFlow não armazena senhas.',
                 'Data de cadastro — para auditoria e controle de acesso.',
                 'Dados de agendamento — serviço, profissional, data, horário e status.',
               ],
@@ -300,7 +300,7 @@ export const PrivacyPolicyModal: React.FC<Props> = ({ onClose }) => {
             {
               title: '5. Segurança das Informações',
               items: [
-                'Senhas armazenadas como hash criptográfico irreversível (SHA-256).',
+                'Autenticação gerenciada pelo Amazon Cognito; o CliniFlow não armazena senhas.',
                 'Controle de acesso baseado em perfis (RBAC) com verificação de propriedade.',
                 'Dados mantidos localmente no navegador (localStorage) nesta fase do projeto.',
               ],

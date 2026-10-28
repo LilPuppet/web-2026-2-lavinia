@@ -27,6 +27,7 @@ import {
   registerWithCognito as cognitoRegister,
   getCurrentAuthUser,
   cognitoSignOut,
+  subscribeAuthEvents,
   type AuthUserInfo,
 } from '../utils/auth';
 
@@ -38,8 +39,8 @@ interface ClinicContextType {
   setViewMode: (mode: ViewMode) => void;
   currentTab: AppTab;
   setCurrentTab: (tab: AppTab) => void;
+  /** Usuário autenticado no Cognito (null = visitante). Somente leitura. */
   currentUser: User | null;
-  setCurrentUser: (user: User | null) => void;
 
   // Auth — Amazon Cognito via aws-amplify (Managed Login + Google pelo Cognito).
   // A sessão é gerenciada pelo Amplify; currentUser é derivado dela.
@@ -145,7 +146,7 @@ interface ClinicContextType {
   ) => { success: boolean; message: string; user?: User };
 
   // Admin user management
-  updateUser: (id: string, data: Partial<Omit<User, 'id' | 'senha_hash'>>) => void;
+  updateUser: (id: string, data: Partial<Omit<User, 'id'>>) => void;
   toggleUserStatus: (id: string) => void;
   deleteUser: (id: string) => { success: boolean; message: string };
   adminCreateUser: (
@@ -164,7 +165,7 @@ interface ClinicContextType {
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
-const STORAGE_PREFIX = 'cliniflow_v2_'; // bumped to v2 to avoid stale data without senha_hash
+const STORAGE_PREFIX = 'cliniflow_v3_'; // v3: sessão/senhas locais removidas (login agora é do Cognito)
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -173,26 +174,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [currentTab, setCurrentTab] = useState<AppTab>('agendamento');
 
-  // Auth
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_PREFIX + 'session');
-      return saved ? (JSON.parse(saved) as User) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  // Persist session (without the hash — we re-read from users array on login)
-  useEffect(() => {
-    if (currentUser) {
-      // Store session without the hash for security hygiene
-      const { senha_hash: _omit, ...safeUser } = currentUser;
-      localStorage.setItem(STORAGE_PREFIX + 'session', JSON.stringify(safeUser));
-    } else {
-      localStorage.removeItem(STORAGE_PREFIX + 'session');
-    }
-  }, [currentUser]);
+  // Auth — currentUser vem SOMENTE da sessão do Cognito (nunca do localStorage,
+  // senão qualquer pessoa poderia forjar um perfil de administrador pelo navegador).
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Business Rules modal
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
@@ -271,25 +255,24 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // ── Auth (Cognito via aws-amplify) ───────────────────────────────────────────
 
-  /** Mapeia o usuário do Cognito para o modelo `User` do app, vinculando por
-   *  e-mail a um usuário local quando existir (preserva id/papel). */
+  /** Mapeia o usuário do Cognito para o modelo `User` do app.
+   *  O PAPEL vem sempre do Cognito (grupos). Se existir um cadastro local com o
+   *  mesmo e-mail, apenas reaproveitamos id/profissional_id/telefone para manter
+   *  o vínculo com agendamentos — nunca o papel local. */
   const mapAuthToUser = (info: AuthUserInfo): User => {
     const email = (info.email ?? '').trim().toLowerCase();
-    const existing = users.find(u => u.email.trim().toLowerCase() === email && email);
-    if (existing) return existing;
-    const tipo: UserRole =
-      info.tipo === 'profissional' || info.tipo === 'administrador'
-        ? info.tipo
-        : 'cliente';
+    const existing = email ? users.find(u => u.email.trim().toLowerCase() === email) : undefined;
+    const tipo: UserRole = info.tipo;
     return {
-      id: info.sub || `cognito-${Date.now()}`,
-      nome: info.name || info.email || 'Usuário Cognito',
+      id: existing?.id ?? info.sub,
+      nome: info.name || existing?.nome || info.email || 'Usuário',
       email,
-      telefone: info.phone_number ?? '',
+      telefone: existing?.telefone || info.phone_number || '',
       tipo,
-      situacao: 'ativo',
-      data_cadastro: new Date().toISOString().split('T')[0],
-      avatar: info.avatar,
+      situacao: existing?.situacao ?? 'ativo',
+      data_cadastro: existing?.data_cadastro ?? new Date().toISOString().split('T')[0],
+      avatar: info.avatar ?? existing?.avatar,
+      profissional_id: tipo === 'profissional' ? existing?.profissional_id : undefined,
     };
   };
 
@@ -301,11 +284,11 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     else setCurrentTab('agendamento');
   };
 
-  // Bootstrap: ao montar (e ao voltar do Cognito com ?code=...), lê a sessão do
-  // Amplify (única fonte de verdade) e popula currentUser. Executado uma vez.
+  // Bootstrap: lê a sessão do Cognito/Amplify ao montar e sempre que o Amplify
+  // avisar (retorno do login com ?code=..., logout, sessão expirada).
   useEffect(() => {
     let active = true;
-    (async () => {
+    const load = async () => {
       const info = await getCurrentAuthUser();
       if (!active) return;
       if (info) {
@@ -313,12 +296,17 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentUser(user);
         routeByRole(user);
       } else {
-        // Sem sessão válida no Cognito — garante estado consistente.
         setCurrentUser(null);
       }
-    })();
+    };
+    void load();
+    const unsubscribe = subscribeAuthEvents({
+      onSignedIn: () => { void load(); },
+      onSignedOut: () => { if (active) setCurrentUser(null); },
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -345,9 +333,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setRulesModalOpen(true);
   };
 
-  // ── Legacy synchronous registerUser (used by AdminProfessionalsView) ─────────
-  // Creates accounts without a password — admin-managed accounts get a hash of a
-  // temporary placeholder so login still works once admin sets a real password.
+  // ── registerUser (usado por AdminProfessionalsView) ───────────────────────────
+  // Cria apenas o cadastro local (dados da clínica). O acesso é pelo Cognito.
   const registerUser = (
     nome: string,
     email: string,
@@ -393,11 +380,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       situacao: 'ativo',
       data_cadastro: new Date().toISOString().split('T')[0],
       profissional_id: profId
-      // No senha_hash — admin-created accounts must reset via the auth flow
     };
 
     setUsers(prev => [...prev, newUser]);
-    showToast(`Usuário ${nome} cadastrado. Peça que ele defina a senha no primeiro acesso.`, 'success');
+    showToast(`Usuário ${nome} cadastrado. Para acessar, ele deve entrar pelo Cognito com este e-mail.`, 'success');
     return { success: true, message: 'Usuário cadastrado com sucesso!', user: newUser };
   };
 
@@ -835,8 +821,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // ── Admin User Management ────────────────────────────────────────────────────
 
-  /** Update non-sensitive fields of any user. Password is never touched here. */
-  const updateUser = (id: string, data: Partial<Omit<User, 'id' | 'senha_hash'>>) => {
+  /** Atualiza dados cadastrais locais de qualquer usuário. */
+  const updateUser = (id: string, data: Partial<Omit<User, 'id'>>) => {
     // If email is being changed, enforce uniqueness
     if (data.email) {
       const normalised = data.email.trim().toLowerCase();
@@ -848,9 +834,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       data = { ...data, email: normalised };
     }
     setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
-    // Keep session in sync if editing the logged-in user
+    // Mantém o usuário logado em sincronia — o papel (tipo) continua vindo do Cognito
     if (currentUser?.id === id) {
-      setCurrentUser(prev => prev ? { ...prev, ...data } : prev);
+      setCurrentUser(prev => prev ? { ...prev, ...data, tipo: prev.tipo } : prev);
     }
     showToast('Dados da conta atualizados.', 'success');
   };
@@ -895,9 +881,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   /**
-   * Admin creates any type of account without a password.
-   * The user must set their own password on first login (account has no senha_hash).
-   * Enforces unique email.
+   * Admin cria o cadastro local de qualquer tipo de conta (sem senha — o login é do Cognito).
+   * O papel efetivo de acesso é definido pelo grupo do usuário no Cognito.
+   * Garante e-mail único.
    */
   const adminCreateUser = (
     nome: string,
@@ -917,10 +903,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tipo,
       situacao: 'ativo',
       data_cadastro: new Date().toISOString().split('T')[0],
-      // No senha_hash — user sets password on first login
     };
     setUsers(prev => [...prev, newUser]);
-    showToast(`Conta de ${nome.trim()} criada. Peça que o usuário defina a senha no primeiro acesso.`, 'success');
+    showToast(`Conta de ${nome.trim()} criada. Para acessar, o usuário deve entrar pelo Cognito com este e-mail.`, 'success');
     return { success: true, message: 'Conta criada com sucesso!', user: newUser };
   };
 
@@ -930,7 +915,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         viewMode, setViewMode,
         currentTab, setCurrentTab,
-        currentUser, setCurrentUser,
+        currentUser,
 
         openAuthModal,
         logout, loginWithCognito, registerWithCognito, loginWithGoogle,

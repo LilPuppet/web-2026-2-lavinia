@@ -1,13 +1,14 @@
 /**
  * Camada de autenticação sobre `aws-amplify/auth` (Amazon Cognito).
  *
- * A sessão e os tokens são gerenciados pelo Amplify (PKCE/state automáticos,
- * sem decodificar JWT manualmente, sem armazenar tokens à mão). Esta é a única
- * fonte de verdade sobre quem está autenticado.
+ * O Amplify gerencia sessão e tokens (PKCE/state automáticos). Esta é a única
+ * fonte de verdade sobre quem está autenticado e qual é o seu papel.
  *
- * Fluxo: App → signInWithRedirect → Cognito Managed Login → (Google, se for o
- * caso) → Cognito emite code → volta à app → o Amplify troca o code por tokens
- * (client público, sem secret no navegador) → lemos getCurrentUser/fetchUserAttributes.
+ * Papel (RBAC): vem dos GRUPOS do Cognito (claim `cognito:groups` do access
+ * token, assinada pelo Cognito) — nunca de um atributo editável pelo usuário.
+ *   grupo "administrador" (ou "admin")  -> administrador
+ *   grupo "profissional"                -> profissional
+ *   sem grupo / grupo "cliente"         -> cliente
  */
 import {
   signInWithRedirect,
@@ -16,60 +17,67 @@ import {
   fetchAuthSession,
   signOut,
 } from 'aws-amplify/auth';
+import { Hub } from 'aws-amplify/utils';
+import type { UserRole } from '../types';
 
-const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN ?? '';
-const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? '';
-
-/** Dados do usuário autenticado, a partir de claims confiáveis do Cognito. */
 export interface AuthUserInfo {
-  /** sub do Cognito (userId) */
+  /** sub do Cognito */
   sub: string;
   username: string;
   email: string;
   name: string;
   phone_number: string;
-  /** papel no app — do atributo custom:tipo, default 'cliente' */
-  tipo: string;
+  tipo: UserRole;
+  groups: string[];
   avatar?: string;
 }
 
-/** Inicia o login no Cognito Managed Login (hosted UI), com Google habilitado. */
+/** Redireciona para a Hosted UI do Cognito (login e cadastro ficam lá). */
 export async function signInWithCognito(): Promise<void> {
-  await signInWithRedirect();
+  try {
+    await signInWithRedirect();
+  } catch (e) {
+    console.error('[auth] signInWithRedirect falhou:', e);
+  }
 }
 
-/** Cadastro — leva à hosted UI (que tem a aba de cadastro). */
-export async function registerWithCognito(): Promise<void> {
-  await signInWithRedirect();
-}
+/** A aba de cadastro fica na própria Hosted UI. */
+export const registerWithCognito = signInWithCognito;
 
-/** Login social Google — mediado pelo Cognito (identity_provider=Google). */
+/** Login com Google, mediado pelo Cognito (identity_provider=Google). */
 export async function signInWithGoogle(): Promise<void> {
-  await signInWithRedirect({ provider: 'Google' });
+  try {
+    await signInWithRedirect({ provider: 'Google' });
+  } catch (e) {
+    console.error('[auth] login Google falhou:', e);
+  }
 }
 
-/**
- * Lê a sessão atual do Amplify. Se houver um `code` na URL (retorno do Cognito),
- * o `fetchAuthSession` completa a troca por tokens. Devolve os dados do usuário
- * a partir dos claims do Cognito, ou null se não houver sessão.
- */
+export function roleFromGroups(groups: string[]): UserRole {
+  const g = groups.map((x) => x.toLowerCase());
+  if (g.includes('administrador') || g.includes('admin')) return 'administrador';
+  if (g.includes('profissional')) return 'profissional';
+  return 'cliente';
+}
+
+/** Lê a sessão atual. Devolve null se não houver usuário autenticado. */
 export async function getCurrentAuthUser(): Promise<AuthUserInfo | null> {
   try {
-    // Completa o fluxo OAuth caso estejamos voltando do Cognito com ?code=...
-    await fetchAuthSession();
+    const session = await fetchAuthSession();
+    if (!session.tokens?.accessToken) return null;
     const { userId, username } = await getCurrentUser();
     const attrs = (await fetchUserAttributes()) as Record<string, string | undefined>;
-    const get = (k: string) => attrs[k] ?? '';
+    const raw = session.tokens.accessToken.payload['cognito:groups'];
+    const groups = Array.isArray(raw) ? raw.map(String) : [];
     return {
       sub: userId,
       username,
-      email: get('email'),
-      name:
-        get('name') ||
-        [get('given_name'), get('family_name')].filter(Boolean).join(' '),
-      phone_number: get('phone_number') || get('custom:telefone'),
-      tipo: get('custom:tipo') || 'cliente',
-      avatar: get('picture') || undefined,
+      email: attrs.email ?? '',
+      name: attrs.name || [attrs.given_name, attrs.family_name].filter(Boolean).join(' '),
+      phone_number: attrs.phone_number ?? '',
+      tipo: roleFromGroups(groups),
+      groups,
+      avatar: attrs.picture || undefined,
     };
   } catch {
     return null;
@@ -77,22 +85,33 @@ export async function getCurrentAuthUser(): Promise<AuthUserInfo | null> {
 }
 
 /**
- * Encerra a sessão: limpa o estado local do Amplify e redireciona para o logout
- * do Cognito (para encerrar também a sessão da hosted UI), voltando à origem.
+ * Encerra a sessão. Com OAuth configurado, o `signOut` do Amplify já limpa os
+ * tokens locais e redireciona ao logout da Hosted UI (redirectSignOut).
  */
 export async function cognitoSignOut(): Promise<void> {
   try {
-    await signOut({ global: false });
-  } catch {
-    // segue para o redirect mesmo se falhar a limpeza local
+    await signOut();
+  } catch (e) {
+    console.error('[auth] signOut falhou:', e);
   }
-  if (COGNITO_DOMAIN && COGNITO_CLIENT_ID) {
-    const params = new URLSearchParams({
-      client_id: COGNITO_CLIENT_ID,
-      logout_uri: window.location.origin,
-    });
-    window.location.assign(`https://${COGNITO_DOMAIN}/logout?${params}`);
-  } else {
-    window.location.assign(window.location.origin);
-  }
+}
+
+/** Ouve eventos do Amplify (retorno do login, logout, refresh que falhou). */
+export function subscribeAuthEvents(handlers: {
+  onSignedIn: () => void;
+  onSignedOut: () => void;
+}): () => void {
+  return Hub.listen('auth', ({ payload }) => {
+    switch (payload.event) {
+      case 'signInWithRedirect':
+      case 'signedIn':
+        handlers.onSignedIn();
+        break;
+      case 'signedOut':
+      case 'tokenRefresh_failure':
+      case 'signInWithRedirect_failure':
+        handlers.onSignedOut();
+        break;
+    }
+  });
 }
