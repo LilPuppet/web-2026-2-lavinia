@@ -37,19 +37,8 @@ export async function signInWithCognito(): Promise<void> {
   try {
     await signInWithRedirect();
   } catch (e) {
+    // Ex.: já existe usuário logado, ou Cognito não configurado (variáveis VITE_COGNITO_* ausentes no build).
     console.error('[auth] signInWithRedirect falhou:', e);
-  }
-}
-
-/** A aba de cadastro fica na própria Hosted UI. */
-export const registerWithCognito = signInWithCognito;
-
-/** Login com Google, mediado pelo Cognito (identity_provider=Google). */
-export async function signInWithGoogle(): Promise<void> {
-  try {
-    await signInWithRedirect({ provider: 'Google' });
-  } catch (e) {
-    console.error('[auth] login Google falhou:', e);
   }
 }
 

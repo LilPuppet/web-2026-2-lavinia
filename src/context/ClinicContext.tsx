@@ -23,8 +23,6 @@ import {
 } from '../data/mockData';
 import {
   signInWithCognito as cognitoSignIn,
-  signInWithGoogle as cognitoGoogleSignIn,
-  registerWithCognito as cognitoRegister,
   getCurrentAuthUser,
   cognitoSignOut,
   subscribeAuthEvents,
@@ -47,12 +45,8 @@ interface ClinicContextType {
   /** Redireciona para o login do Cognito (usado por fluxos que exigem auth). */
   openAuthModal: (tab?: 'login' | 'register', callback?: () => void) => void;
   logout: () => void;
-  /** Inicia o login no Cognito Managed Login (Google habilitado). */
+  /** Redireciona para a Hosted UI do Cognito (login e cadastro). */
   loginWithCognito: () => void;
-  /** Inicia o cadastro via hosted UI do Cognito. */
-  registerWithCognito: () => void;
-  /** Login Google mediado pelo Cognito (identity_provider=Google). */
-  loginWithGoogle: () => void;
 
   // Business Rules inspector
   rulesModalOpen: boolean;
@@ -316,14 +310,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     void cognitoSignIn();
   };
 
-  /** Inicia o login no Cognito Managed Login (Google habilitado). */
+  /** Redireciona para a Hosted UI do Cognito (login e cadastro). */
   const loginWithCognito = () => { void cognitoSignIn(); };
-
-  /** Inicia o cadastro via hosted UI do Cognito. */
-  const registerWithCognito = () => { void cognitoRegister(); };
-
-  /** Login Google mediado pelo Cognito (identity_provider=Google). */
-  const loginWithGoogle = () => { void cognitoGoogleSignIn(); };
 
   /** Encerra a sessão (Amplify) e redireciona para o logout do Cognito. */
   const logout = () => { void cognitoSignOut(); };
@@ -918,7 +906,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentUser,
 
         openAuthModal,
-        logout, loginWithCognito, registerWithCognito, loginWithGoogle,
+        logout, loginWithCognito,
 
         rulesModalOpen, setRulesModalOpen,
         selectedRuleCode, openRuleDetail,
