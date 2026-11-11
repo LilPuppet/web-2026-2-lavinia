@@ -700,8 +700,10 @@
     scopes:     'openid email profile',
   };
 
-  // Redirect URI = origem da página (funciona em localhost e em produção)
-  const REDIRECT_URI = window.location.origin;
+  // Redirect URI = origem da página + /cognito-demo/ (funciona em localhost e em produção)
+  // Em produção: https://www.zangado.web.ufersa.dev.br/cognito-demo/
+  // Em localhost: http://localhost:3000/cognito-demo/ (ou porta do seu servidor)
+  const REDIRECT_URI = window.location.origin + '/cognito-demo/';
 
   /* ─── Geração e verificação de state (proteção CSRF) ─────────────────── */
   function generateState() {
