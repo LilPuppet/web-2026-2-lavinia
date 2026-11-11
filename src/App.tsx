@@ -2,6 +2,7 @@ import React from 'react';
 import { ClinicProvider, useClinic } from './context/ClinicContext';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage/LandingPage';
+import { CognitoDemoView } from './components/CognitoDemoView';
 import { ClientBookingFlow } from './components/App/ClientBookingFlow';
 import { ClientAppointmentsView } from './components/App/ClientAppointmentsView';
 import { ProfessionalAgendaView } from './components/App/ProfessionalAgendaView';
@@ -49,16 +50,23 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
-      <Navbar />
+      {/* Navbar só aparece nos modos landing e app — o cognito-demo tem sua própria topbar */}
+      {viewMode !== 'cognito-demo' && <Navbar />}
 
-      {viewMode === 'landing' ? (
+      {/* ── Modo demonstração Cognito JWT ──────────────────────────────── */}
+      {viewMode === 'cognito-demo' && (
+        <CognitoDemoView onBack={() => setViewMode('landing')} />
+      )}
+
+      {/* ── Landing page ───────────────────────────────────────────────── */}
+      {viewMode === 'landing' && (
         <main className="flex-1">
           <LandingPage />
         </main>
-      ) : (
+      )}
+      {/* ── Sistema CliniFlow ──────────────────────────────────────────── */}
+      {viewMode === 'app' && (
         <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6">
-
-          {/* Sub-navigation bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
 
             <div className="flex items-center gap-3">

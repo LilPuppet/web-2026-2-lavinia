@@ -119,7 +119,7 @@ export const ProfilesSection: React.FC = () => {
             </div>
 
             <button
-              onClick={() => window.location.href = 'cognito-demo/'}
+              onClick={() => setViewMode('cognito-demo')}
               className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition flex items-center justify-center gap-2"
             >
               <span>Entrar como Profissional</span>
@@ -161,7 +161,7 @@ export const ProfilesSection: React.FC = () => {
             </div>
 
             <button
-              onClick={() => window.location.href = 'cognito-demo/'}
+              onClick={() => setViewMode('cognito-demo')}
               className="w-full py-2.5 px-4 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs transition flex items-center justify-center gap-2"
             >
               <span>Entrar como Administrador</span>

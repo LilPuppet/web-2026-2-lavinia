@@ -165,7 +165,14 @@ const STORAGE_PREFIX = 'cliniflow_v3_'; // v3: sessão/senhas locais removidas (
 
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation
-  const [viewMode, setViewMode] = useState<ViewMode>('landing');
+  // Detecta sincronamente se estamos num callback do Cognito Implicit Grant
+  // (#id_token=…). Isso evita flash da landing enquanto o hash ainda está na URL.
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    return hash.includes('id_token=') || hash.includes('access_token=')
+      ? 'cognito-demo'
+      : 'landing';
+  });
   const [currentTab, setCurrentTab] = useState<AppTab>('agendamento');
 
   // Auth — currentUser vem SOMENTE da sessão do Cognito (nunca do localStorage,

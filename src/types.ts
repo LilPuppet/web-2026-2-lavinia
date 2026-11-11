@@ -133,7 +133,7 @@ export interface TimeSlot {
   motivo_indisponibilidade?: string;
 }
 
-export type ViewMode = 'landing' | 'app';
+export type ViewMode = 'landing' | 'app' | 'cognito-demo';
 
 export type AppTab = 
   | 'agendamento' 
