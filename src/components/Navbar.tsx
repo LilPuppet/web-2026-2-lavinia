@@ -14,7 +14,8 @@ import {
   ClipboardList,
   Clock,
   Settings,
-  Users
+  Users,
+  UserPlus
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -25,7 +26,6 @@ export const Navbar: React.FC = () => {
     setCurrentTab,
     currentUser,
     logout,
-    loginWithCognito,
     setRulesModalOpen,
     clinicConfig
   } = useClinic();
@@ -253,13 +253,15 @@ export const Navbar: React.FC = () => {
                     Abrir sistema
                   </button>
                 ) : (
-                  <button
-                    onClick={loginWithCognito}
-                    className="inline-flex items-center gap-2 bg-[#176b63] hover:bg-[#0d514b] text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    Login/Signup
-                  </button>
+                  <div className="hidden sm:flex items-center gap-2">
+                    <button
+                      onClick={() => window.location.href = 'cognito-demo/'}
+                      className="inline-flex items-center gap-2 bg-[#176b63] hover:bg-[#0d514b] text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Entrar / Criar Conta
+                    </button>
+                  </div>
                 )}
               </div>
             ) : currentUser ? (
@@ -357,11 +359,18 @@ export const Navbar: React.FC = () => {
               /* ── Guest buttons ────────────────────────────────────────────── */
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  onClick={loginWithCognito}
-                  className="flex items-center gap-1.5 bg-[#102b38] hover:bg-[#176b63] text-white text-xs font-bold px-3 py-2 rounded-lg transition"
+                  onClick={() => window.location.href = 'cognito-demo/'}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#102b38] hover:text-[#176b63] px-3 py-2 rounded-lg transition border border-slate-200 bg-white hover:bg-slate-50"
                 >
                   <LogIn className="w-4 h-4" />
-                  Login/Signup
+                  Entrar
+                </button>
+                <button
+                  onClick={() => window.location.href = 'cognito-demo/'}
+                  className="flex items-center gap-1.5 bg-[#102b38] hover:bg-[#176b63] text-white text-xs font-bold px-3 py-2 rounded-lg transition"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Criar Conta
                 </button>
               </div>
             )}
@@ -519,10 +528,16 @@ export const Navbar: React.FC = () => {
             ) : (
               <div className="flex gap-2">
                 <button
-                  onClick={() => { loginWithCognito(); setMobileMenuOpen(false); }}
+                  onClick={() => { window.location.href = 'cognito-demo/'; setMobileMenuOpen(false); }}
+                  className="text-xs font-bold text-[#176b63] px-3 py-1.5 rounded-lg border border-[#176b63] hover:bg-[#e2f2ef] transition"
+                >
+                  Entrar
+                </button>
+                <button
+                  onClick={() => { window.location.href = 'cognito-demo/'; setMobileMenuOpen(false); }}
                   className="text-xs font-bold text-white bg-[#176b63] hover:bg-[#0d514b] px-3 py-1.5 rounded-lg transition"
                 >
-                  Login/Signup
+                  Criar Conta
                 </button>
               </div>
             )}

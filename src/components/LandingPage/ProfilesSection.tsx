@@ -1,9 +1,9 @@
 import React from 'react';
 import { useClinic } from '../../context/ClinicContext';
-import { User, Stethoscope, ShieldAlert, Check, X as XIcon, ArrowRight } from 'lucide-react';
+import { User, Stethoscope, ShieldAlert, Check, ArrowRight } from 'lucide-react';
 
 export const ProfilesSection: React.FC = () => {
-  const { switchRole, setViewMode, setCurrentTab } = useClinic();
+  const { setViewMode, setCurrentTab } = useClinic();
 
   const rbacMatrix = [
     { operacao: 'Consultar serviços clínicos', cliente: true, profissional: true, admin: true },
@@ -75,13 +75,12 @@ export const ProfilesSection: React.FC = () => {
 
             <button
               onClick={() => {
-                switchRole('cliente');
                 setViewMode('app');
                 setCurrentTab('agendamento');
               }}
               className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#176b63] font-bold text-xs transition flex items-center justify-center gap-2"
             >
-              <span>Testar como Cliente</span>
+              <span>Ver Agendamento</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -120,14 +119,10 @@ export const ProfilesSection: React.FC = () => {
             </div>
 
             <button
-              onClick={() => {
-                switchRole('profissional');
-                setViewMode('app');
-                setCurrentTab('agenda-profissional');
-              }}
+              onClick={() => window.location.href = 'cognito-demo/'}
               className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition flex items-center justify-center gap-2"
             >
-              <span>Testar como Profissional</span>
+              <span>Entrar como Profissional</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -166,14 +161,10 @@ export const ProfilesSection: React.FC = () => {
             </div>
 
             <button
-              onClick={() => {
-                switchRole('administrador');
-                setViewMode('app');
-                setCurrentTab('admin-dashboard');
-              }}
+              onClick={() => window.location.href = 'cognito-demo/'}
               className="w-full py-2.5 px-4 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs transition flex items-center justify-center gap-2"
             >
-              <span>Testar como Administrador</span>
+              <span>Entrar como Administrador</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
