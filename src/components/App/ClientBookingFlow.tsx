@@ -24,7 +24,6 @@ export const ClientBookingFlow: React.FC = () => {
     calculateAvailableSlots,
     bookAppointment,
     currentUser,
-    openAuthModal,
     setCurrentTab,
     appointments,
     clinicConfig
@@ -92,10 +91,8 @@ export const ClientBookingFlow: React.FC = () => {
   // Handle final confirmation
   const handleConfirmBooking = () => {
     if (!currentUser) {
-      // Prompt login or account creation
-      openAuthModal('login', () => {
-        // Will be resumed after login
-      });
+      // Redireciona para a página de login/cadastro do Cognito
+      window.location.href = 'cognito-demo/';
       return;
     }
 
@@ -641,13 +638,13 @@ export const ClientBookingFlow: React.FC = () => {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => openAuthModal('login')}
+                      onClick={() => window.location.href = 'cognito-demo/'}
                       className="bg-[#102b38] hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg transition"
                     >
                       Já tenho conta (Entrar)
                     </button>
                     <button
-                      onClick={() => openAuthModal('register')}
+                      onClick={() => window.location.href = 'cognito-demo/'}
                       className="bg-[#176b63] hover:bg-[#0d514b] text-white text-xs font-bold px-4 py-2 rounded-lg transition"
                     >
                       Criar Conta com E-mail Único
